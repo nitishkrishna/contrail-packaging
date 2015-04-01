@@ -34,13 +34,8 @@ URL:                http://www.juniper.net/
 Vendor:             Juniper Networks Inc
 
 Requires:	redis
-%if %{_skuTag} == "grizzly"
-Requires:	contrail-nodejs = 0.8.15-1
-%else
-Requires:	nodejs = 0.8.15-1
-%endif
+Requires:	nodejs >= 0.8.15-1%{?dist}
 Requires:	supervisor
-Requires: 	python-contrail >= %{_verstr}-%{_relstr}
 
 Obsoletes:      contrail-webui
 
@@ -85,7 +80,6 @@ cp -p %{_distropkgdir}/supervisor-webui.service  %{buildroot}%{_servicedir}/supe
 install -p -m 755 %{_distropkgdir}/supervisor-webui.initd %{buildroot}%{_initddir}/supervisor-webui
 install -p -m 755 %{_distropkgdir}/contrail-webui.initd.supervisord          %{buildroot}%{_initddir}/contrail-webui
 install -p -m 755 %{_distropkgdir}/contrail-webui-middleware.initd.supervisord %{buildroot}%{_initddir}/contrail-webui-middleware
-install -p -m 755 %{_distropkgdir}/redis-webui.initd.supervisord          %{buildroot}%{_initddir}/redis-webui
 %endif
 cp -p %{_distropkgdir}/contrailWebServer.sh %{buildroot}%{_contrailwebsrc}/
 cp -p %{_distropkgdir}/contrailWebMiddleware.sh %{buildroot}%{_contrailwebsrc}/
@@ -96,20 +90,17 @@ ln -s %{_libdir}/node_modules %{buildroot}%{_contrailwebsrc}/node_modules
 rm %{buildroot}%{_contrailwebsrc}/config/config.global.js
 cp -p %{_config}/config.global.js %{buildroot}%{_contrailetc}/
 ln -s %{_contrailetc}/config.global.js %{buildroot}%{_contrailwebsrc}/config/config.global.js
+perl -pi -e '{ s/opencontrail-logo/juniper-networks-logo/g; }' %{buildroot}%{_contrailetc}/config.global.js
+perl -pi -e '{ s/opencontrail-favicon/juniper-networks-favicon/g; }' %{buildroot}%{_contrailetc}/config.global.js
+rm %{buildroot}%{_contrailwebsrc}/config/userAuth.js
+cp -p %{_config}/userAuth.js %{buildroot}%{_contrailetc}/contrail-webui-userauth.js
+ln -s %{_contrailetc}/contrail-webui-userauth.js %{buildroot}%{_contrailwebsrc}/config/userAuth.js
 
 #install .ini files for supervisord
 install -d -m 755 %{buildroot}%{_supervisordir}
 install -p -m 755 %{_distropkgdir}/supervisord_webui.conf %{buildroot}%{_contrailetc}/supervisord_webui.conf
-install -p -m 755 %{_distropkgdir}/redis-webui.conf %{buildroot}%{_contrailetc}/redis-webui.conf
 install -p -m 755 %{_distropkgdir}/contrail-webui.ini %{buildroot}%{_supervisordir}/contrail-webui.ini
 install -p -m 755 %{_distropkgdir}/contrail-webui-middleware.ini %{buildroot}%{_supervisordir}/contrail-webui-middleware.ini
-%if %{_skuTag} == "grizzly"
-perl -pi -e '{ s/node webServerStart.js/nodejs-contrail webServerStart.js/g; }' %{buildroot}%{_supervisordir}/contrail-webui.ini
-perl -pi -e '{ s/node jobServerStart.js/nodejs-contrail jobServerStart.js/g; }' %{buildroot}%{_supervisordir}/contrail-webui-middleware.ini
-%endif
-install -p -m 755 %{_distropkgdir}/supervisord_wrapper_scripts/contrail-webui.kill %{buildroot}%{_supervisordir}/contrail-webui.kill
-install -p -m 755 %{_distropkgdir}/supervisord_wrapper_scripts/contrail-webui-middleware.kill %{buildroot}%{_supervisordir}/contrail-webui-middleware.kill
-install -p -m 755 %{_distropkgdir}/redis-webui.ini %{buildroot}%{_supervisordir}/redis-webui.ini
 
 %clean
 rm -rf %{buildroot}
@@ -130,9 +121,9 @@ rm -rf %{_specdir}/contrail-webui.spec
 %endif
 %{_libdir}/*
 %config(noreplace) %{_contrailetc}/config.global.js
+%config(noreplace) %{_contrailetc}/contrail-webui-userauth.js
 %config(noreplace) %{_supervisordir}/*
 %config(noreplace) %{_contrailetc}/supervisord_webui.conf
-%config(noreplace) %{_contrailetc}/redis-webui.conf
 
 %post
 %if 0%{?rhel}

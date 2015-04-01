@@ -13,11 +13,14 @@ Depends:
  contrail-nodemgr,
  contrail-lib,
  contrail-config,
+ contrail-f5,
  neutron-plugin-contrail,
  neutron-server,
  python-novaclient,
  python-keystoneclient,
- contrail-setup, haproxy,
+ contrail-setup,
+ contrail-utils,
+ haproxy (>=1.5.4-1ppa1~precise),
  euca2ools,
  rabbitmq-server,
  python-qpid,
@@ -25,5 +28,6 @@ Depends:
  python-bottle,
  ifmap-server,
  ifmap-python-client,
- contrail-config-openstack
+ contrail-config-openstack,
+ keepalived (>=1.2.13-1) | keepalived (>=1.2.13-0~276~ubuntu14.04.1)
 Description: Contrail Openstack Config composite debian package

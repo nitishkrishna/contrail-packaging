@@ -19,7 +19,6 @@ from lxml import etree
 from libs.packager.utils import Utils
 
 log = logging.getLogger("pkg")
-PLATFORM = Utils.get_platform_info()
 
 class MakeError(Exception):
     pass
@@ -32,7 +31,7 @@ class BasePackager(Utils):
         self.contrail_pkg_files    = self.expanduser(kwargs['contrail_package_file'])
         self.id                    = kwargs.get('build_id', 999)
         self.sku                   = kwargs.get('sku', 'grizzly')
-        self.branch                = kwargs.get('branch', None)
+        self.branch                = kwargs.get('branch', 9.9)
         self.store                 = self.expanduser(kwargs['store_dir'])
         self.abs_pkg_dirs          = self.expanduser(kwargs['absolute_package_dir'])
         self.cache_base_dir        = self.expanduser(kwargs['cache_base_dir'])
@@ -42,10 +41,10 @@ class BasePackager(Utils):
         self.fail_on_error         = kwargs.get('fail_on_error', False)
         self.make_targets_file     = self.expanduser(kwargs.get('make_targets_file', None))
         pkg_types                  = {'ubuntu': 'deb', 'centos': 'rpm', \
-                                      'redhat': 'rpm', 'fedora': 'rpm'}
-        self.platform              = platform.dist()[0].lower()
-        self.platform              = PLATFORM[0]
-        self.cache_subdir          = "".join(PLATFORM[:2]).lower().replace('.', '')
+                                      'redhatenterpriselinuxserver': 'rpm', 'fedora': 'rpm'}
+        platform                   = self.get_platform_info(kwargs['os_version'])
+        self.platform              = platform['default'][0]
+        self.cache_subdir          = platform['formatted']
         self.pkg_type              = pkg_types[self.platform]
         self.store_log_dir         = os.path.join(self.store, 'package_info')
         self.artifacts_dir         = os.path.join(self.git_local_repo, 'build', 'artifacts')
@@ -72,7 +71,9 @@ class BasePackager(Utils):
         contrail_pkgs_dict = self.get_dict_by_item(contrail_pkgs, 'package_type')
 
         # make contrail-install-packages are done first
-        pkgtypes = sorted(contrail_pkgs_dict.keys())
+        pkgtypes = list(set(sorted(contrail_pkgs_dict.keys() +
+                                   depends_pkgs_dict.keys() +
+                                   base_pkgs_dict.keys())))
         if 'contrail-install-packages' in pkgtypes:
             pkgtypes.remove('contrail-install-packages')
             pkgtypes = ['contrail-install-packages'] + pkgtypes
@@ -91,8 +92,12 @@ class BasePackager(Utils):
                 self.contrail_pkgs = contrail_pkgs_dict[pkgtype]
                 self.meta_pkg = pkgtype
                 self.pkglist_file = os.path.join(self.store_log_dir,
-                                             '%s_%s_list.txt' % (
-                                             self.meta_pkg, self.pkg_type))
+                                      '%s_%s_%s_list.txt' % (
+                                      self.meta_pkg, self.id, self.pkg_type))
+                self.pkglist_thirdparty = os.path.join(self.store_log_dir,
+                                          '%s_%s_%s_thirdparty.txt' % (
+                                          self.meta_pkg, self.id,
+                                          self.pkg_type))
                 self.default_targets = filter(lambda pkg: pkg.endswith('-default-target'),
                                           self.contrail_pkgs.keys()) 
                 if base_pkgs_dict.has_key(pkgtype):
@@ -118,11 +123,6 @@ class BasePackager(Utils):
             updating config data structures, creating dirs,
             copying package files..etc
         '''
-        
-        # update branch and build tag and tgz name
-        # Temporarily override user input for branch
-        self.branch = self.exec_cmd_out('cat %s/controller/src/base/version.info' 
-                                             %self.git_local_repo)[0]
         
         # update repo dir with store dir prefix and get repo list
         self.update_repoinfo(self.base_pkgs, self.depends_pkgs,
@@ -186,31 +186,6 @@ class BasePackager(Utils):
                    target == self.meta_pkg:
                     continue
                 self.contrail_pkgs[target]['builtloc'] = self.contrail_pkg_dirs
-
-            # pick up or create contrail_installer.tgz 
-            if not ('contrail-setup' in [tgt.strip('-deb') for tgt in self.targets] or
-                    'contrail-default-target' in self.targets):
-                if self.platform == 'ubuntu':
-                    builddir = os.path.join(self.git_local_repo, 'build', 'debian')
-                else:
-                    builddir = os.path.join(self.git_local_repo, 'controller', 'build')
-                self.create_dir(builddir)
-                files = self.get_file_list(self.contrail_pkg_dirs, 'contrail_installer.tgz')
-                installer_tgz = self.get_latest_file(files)
-                if installer_tgz:
-                    if os.path.dirname(installer_tgz) == builddir:
-                        log.debug('Installer TGZ (%s) is already present '
-                                  ' in build dir (%s)' % (
-                                  installer_tgz, builddir))
-                    else:
-                        log.info('Copying %s to %s' %(installer_tgz, builddir))
-                        shutil.copy(installer_tgz, builddir)
-                else:
-                    installer_script = os.path.join(self.git_local_repo, 'tools',
-                                                     'provisioning', 'create_installer.py')
-                    log.info('Creating contrail_installer.tgz...')
-                    self.exec_cmd(installer_script, wd=builddir)
-                    
         else:
             self.targets = self.targets or self.default_targets
                     
@@ -282,6 +257,7 @@ class BasePackager(Utils):
 
     def create_pkg_list_file(self):
         pkglist = []
+        thirdparties = []
         for target in self.contrail_pkgs.keys():
             packages = self.contrail_pkgs[target]['pkgs']
             packages = [packages] if type(packages) is str else packages
@@ -289,7 +265,15 @@ class BasePackager(Utils):
         with open(self.pkglist_file, 'w') as fid:
             fid.write("%s\n" %"\n".join(sorted(pkglist)))
             fid.flush()
-        log.info('Packages list file (%s) is created' %self.pkglist_file)
+        for key, pkg_info in self.depends_pkgs.items():
+            if pkg_info['file'].count('contrail') == 0:
+                thirdparties.append('%s, %s' % (pkg_info['md5'], pkg_info['file']))
+        with open(self.pkglist_thirdparty, 'w') as fid:
+            fid.write('MD5, ThirdParty_Package\n')
+            fid.write('\n'.join(thirdparties))
+        log.info('Packages list file (%s) is created' % self.pkglist_file)
+        log.info('Packages thirdparty list file (%s) '
+                 'is created' % self.pkglist_thirdparty)
 
     def create_log(self):
         filelist = []
@@ -359,5 +343,5 @@ class BasePackager(Utils):
                            pkginfo['target']), pkginfo['makeloc'])
         except:
             raise MakeError(sys.exc_info()[1])
-        log.debug('Removing TGZ File (%s) after Make' % tgz_name)
-        os.unlink(tgz_name)
+        #log.debug('Removing TGZ File (%s) after Make' % tgz_name)
+        #os.unlink(tgz_name)

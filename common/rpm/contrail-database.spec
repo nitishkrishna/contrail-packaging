@@ -1,5 +1,5 @@
 %define  _distropkgdir tools/packaging/common/control_files
-%define  _supervisordir /etc/contrail/supervisord_contrail_database_files
+%define  _supervisordir /etc/contrail/supervisord_database_files
 %define  _venv_root    /opt/contrail/database-venv
 %define  _venvtr       --prefix=%{_venv_root}
 %define  _pyver        %( %{__python} -c "import sys; print '%s.%s' % sys.version_info[0:2]" )
@@ -31,10 +31,12 @@ BuildArch: noarch
 Requires: cassandra12
 Requires: supervisor
 Requires: java-1.7.0-openjdk
+Requires: kafka
 
 Source1: supervisord_contrail_database.initd
-Source2: supervisord_contrail_database.conf
+Source2: supervisord_database.conf
 Source3: contrail-database.initd
+Source4: kafka.initd
 
 %description
 Contrail Database package
@@ -106,17 +108,19 @@ popd
 install -d -m 755 %{buildroot}%{_supervisordir}
 install -d -m 755 %{buildroot}%{_initddir}
 pushd %{_builddir}/..
-install -D -m 755 %{_distropkgdir}/supervisord_contrail_database.rules %{buildroot}%{_supervisordir}/supervisord_contrail_database.rules
-install -D -m 755 %{_distropkgdir}/contrail-nodemgr-database.conf %{buildroot}/etc/contrail/contrail-nodemgr-database.conf
+install -D -m 755 %{_distropkgdir}/contrail-nodemgr-database.ini %{buildroot}%{_supervisordir}/contrail-nodemgr-database.ini
+install -D -m 755 %{_distropkgdir}/contrail-database.rules %{buildroot}%{_supervisordir}/contrail-database.rules
+install -D -m 755 %{_distropkgdir}/contrail-database-nodemgr.conf %{buildroot}/etc/contrail/contrail-database-nodemgr.conf
 popd
 
 %if 0%{?rhel}
-install -D -m 755 %{_distropkgdir}/supervisord_contrail_database.initd          %{buildroot}%{_initddir}/supervisor-contrail-database
+install -D -m 755 %{_distropkgdir}/supervisord_contrail_database.initd          %{buildroot}%{_initddir}/supervisor-database
 %endif
 
-install -D -m 755 %{SOURCE1} %{buildroot}%{_sysconfdir}/rc.d/init.d/supervisord-contrail-database
-install -D -m 755 %{SOURCE2} %{buildroot}%{_sysconfdir}/contrail/supervisord_contrail_database.conf
+install -D -m 755 %{SOURCE1} %{buildroot}%{_sysconfdir}/rc.d/init.d/supervisor-database
+install -D -m 755 %{SOURCE2} %{buildroot}%{_sysconfdir}/contrail/supervisord_database.conf
 install -D -m 755 %{SOURCE3} %{buildroot}%{_sysconfdir}/rc.d/init.d/contrail-database
+install -D -m 755 %{SOURCE4} %{buildroot}%{_sysconfdir}/rc.d/init.d/kafka
 
 
 pushd %{buildroot}
@@ -175,15 +179,17 @@ fi
 %files
 %defattr(-,root,root,-)
 %{_venv_root}
-%{_supervisordir}/supervisord_contrail_database.rules
-/etc/contrail/contrail-nodemgr-database.conf
+%{_supervisordir}/contrail-database.rules
+%{_supervisordir}/contrail-nodemgr-database.ini
+/etc/contrail/contrail-database-nodemgr.conf
 %if 0%{?rhel}
-%{_initddir}/supervisor-contrail-database
+%{_initddir}/supervisor-database
 %endif
 %doc
 %{_sysconfdir}/rc.d/init.d/contrail-database
-%{_sysconfdir}/rc.d/init.d/supervisord-contrail-database
-%config(noreplace) %{_sysconfdir}/contrail/supervisord_contrail_database.conf
+%{_sysconfdir}/rc.d/init.d/kafka
+%{_sysconfdir}/rc.d/init.d/supervisor-database
+%config(noreplace) %{_sysconfdir}/contrail/supervisord_database.conf
 
 %changelog
 * Wed Dec 12 2012 Pedro Marques <roque@build02> - 

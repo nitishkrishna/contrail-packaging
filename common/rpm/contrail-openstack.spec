@@ -22,29 +22,32 @@ Vendor:             Juniper Networks Inc
 BuildArch: noarch
 
 Requires: python-contrail >= %{_verstr}-%{_relstr}
-Requires: openstack-dashboard
-Requires: contrail-openstack-dashboard >= %{_verstr}-%{_relstr}
+Requires: openstack-dashboard = 2013.2-%{_verstr}.%{_relstr}
+Requires: contrail-openstack-dashboard >= 2013.2-%{_verstr}.%{_relstr}
 Requires: openstack-glance
 Requires: openstack-keystone
-Requires: openstack-nova
+Requires: openstack-nova = 2013.2-2contrail
 Requires: openstack-cinder
-Requires: mysql-server
-#Requires: MySQL-server
+Requires: mysql-server >= 5.1.73
 Requires: openssl098e
 Requires: contrail-setup >= %{_verstr}-%{_relstr}
+Requires: contrail-utils >= %{_verstr}-%{_relstr}
 Requires: memcached
-Requires: openstack-nova-novncproxy
+Requires: openstack-nova-novncproxy = 2013.2-2contrail
 Requires: python-glance
 Requires: python-glanceclient
 %if 0%{?rhel} 
 Requires: python-importlib
 %endif
-Requires: euca2ools
+Requires: euca2ools >= 1.0-2contrail
 Requires: m2crypto
 Requires: qpid-cpp-server
 Requires: haproxy
 Requires: rabbitmq-server
 Requires: supervisor
+%if 0%{?rhel} <= 6
+Requires: python-importlib
+%endif
 
 %description
 Contrail Package Requirements for Contrail Openstack
@@ -57,8 +60,8 @@ install -d -m 755 %{buildroot}/%{_bindir}
 pushd %{_builddir}/..
 # Install supervisord config config files and directories
 install -d -m 755 %{buildroot}%{_sysconfdir}/contrail/supervisord_openstack_files
-install -D -m 755 %{_distropkgdir}/supervisor-openstack.initd %{buildroot}%{_initddir}/supervisor-openstack.initd_openstack
-install -D -m 755 %{_distropkgdir}/supervisord_openstack.conf %{buildroot}%{_sysconfdir}/contrail/supervisord_openstack.conf.supervisord_openstack
+install -D -m 755 %{_distropkgdir}/supervisor-openstack.initd %{buildroot}%{_initddir}/supervisor-openstack
+install -D -m 755 %{_distropkgdir}/supervisord_openstack.conf %{buildroot}%{_sysconfdir}/contrail/supervisord_openstack.conf
 # Install supervisor init.d files
 install -D -m 755 %{_distropkgdir}/keystone.initd.supervisord %{buildroot}%{_initddir}/keystone
 install -D -m 755 %{_distropkgdir}/nova-api.initd.supervisord %{buildroot}%{_initddir}/nova-api
@@ -83,7 +86,7 @@ install -D -m 755 %{_distropkgdir}/nova-conductor.ini.centos %{buildroot}%{_sysc
 install -D -m 755 %{_distropkgdir}/nova-consoleauth.ini.centos %{buildroot}%{_sysconfdir}/contrail/supervisord_openstack_files/nova-consoleauth.ini
 install -D -m 755 %{_distropkgdir}/nova-novncproxy.ini.centos %{buildroot}%{_sysconfdir}/contrail/supervisord_openstack_files/nova-novncproxy.ini
 # Install contrail openstack-status
-install -p -m 755 tools/provisioning/openstack-status %{buildroot}/%{_bindir}/openstack-status.contrail
+install -p -m 755 tools/provisioning/tools/openstack-status %{buildroot}/%{_bindir}/openstack-status.contrail
 popd
 
 %files
@@ -91,7 +94,6 @@ popd
 %{_sysconfdir}/contrail
 %{_initddir}
 %{_bindir}
-%config(noreplace) %{_sysconfdir}/contrail/supervisord_openstack.conf.supervisord_openstack
 %config(noreplace) %{_sysconfdir}/contrail/supervisord_openstack_files/keystone.ini
 %config(noreplace) %{_sysconfdir}/contrail/supervisord_openstack_files/glance-api.ini
 %config(noreplace) %{_sysconfdir}/contrail/supervisord_openstack_files/glance-registry.ini
@@ -112,7 +114,7 @@ fi
 mv %{_bindir}/openstack-status.contrail %{_bindir}/openstack-status
 
 # Replace stock openstack initd scripts with contrail initd scripts
-for svc in openstack-keystone openstack-nova_api openstack-nova-scheduler\
+for svc in openstack-keystone openstack-nova-api openstack-nova-scheduler\
            openstack-nova-consoleauth openstack-nova-conductor\
            openstack-nova-novncproxy openstack-glance-api\
            openstack-glance-registry openstack-cinder-api\
@@ -122,17 +124,6 @@ for svc in openstack-keystone openstack-nova_api openstack-nova-scheduler\
         mv %{_initddir}/$svc %{_initddir}/$svc.backup
     fi
 done
-
-if [ ! -f %{_initddir}/supervisor-openstack ]; then
-    mv %{_initddir}/supervisor-openstack.initd_openstack %{_initddir}/supervisor-openstack
-else
-    rm %{_initddir}/supervisor-openstack.initd_openstack
-fi
-if [ ! -f /etc/contrail/supervisord_openstack.conf ]; then
-    mv /etc/contrail/supervisord_openstack.conf.supervisord_openstack /etc/contrail/supervisord_openstack.conf
-else
-    rm /etc/contrail/supervisord_openstack.conf.supervisord_openstack
-fi
 
 %changelog
 * Tue Sep 26 2013 <ndramesh@juniper.net>

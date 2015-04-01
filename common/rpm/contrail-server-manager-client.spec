@@ -58,7 +58,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 #BuildRequires:
 Requires: python >= 2.6.6
-
+Requires: python-xmltodict
 %description
 A Client for Server manager
 
@@ -66,7 +66,12 @@ A Client for Server manager
 #%setup -q
 
 %post
-HOST_IP=`ifconfig | sed -n -e 's/:127\.0\.0\.1 //g' -e 's/ *inet addr:\([0-9.]\+\).*/\1/gp'`
+HOST_IP_LIST=`ifconfig | sed -n -e 's/:127\.0\.0\.1 //g' -e 's/ *inet addr:\([0-9.]\+\).*/\1/gp'`
+HOST_IP=`echo $HOST_IP_LIST | cut -d' ' -f1`
+if [ -f /opt/contrail/contrail_server_manager/IP.txt ];
+then
+   HOST_IP=$(cat /opt/contrail/contrail_server_manager/IP.txt)
+fi
 echo $HOST_IP
 
 easy_install argparse
@@ -98,7 +103,7 @@ cp %{_contrail_smgr_src}utils/create_smgr_db.py %{buildroot}%{_contrailopt}%{_co
 cp %{_contrail_smgr_src}client/server-manager %{buildroot}%{_contrailopt}%{_contrail_smgr}/client
 
 
-cp -r %{_contrail_smgr_src}client/smgr_client_config.ini %{buildroot}%{_contrailopt}%{_contrail_smgr}/client
+cp -r %{_contrail_smgr_src}client/sm-client-config.ini %{buildroot}%{_contrailopt}%{_contrail_smgr}/client
 
 %clean
 rm -rf %{buildroot}

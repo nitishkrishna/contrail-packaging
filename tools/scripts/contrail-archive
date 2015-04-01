@@ -7,7 +7,7 @@ import glob
 import shlex
 import subprocess
 
-archiveBaseDir = "/volume/junosv-storage01/contrail/"
+archiveBaseDir = "/volume/contrail/"
 
 class ContrailArchive(object):
     """ contrailBuild class to parse and execute the build commands """
@@ -22,9 +22,15 @@ class ContrailArchive(object):
             print 'Error: Need a branch to archive'
             sys.exit(1)
 
-        require_arch = ["centos64_os", "ubuntu-12-04"]
+        require_arch = '''
+            centos64_os
+            centos65
+            ubuntu-12-04
+            ubuntu-14-04
+            redhat70
+        '''.split()
         if not self.opt.arch_type in require_arch:
-            print 'Error: Only centos64_os and ubuntu-12-04 are currently supported'
+            print 'Error: Only ' + ', '.join(require_arch) + ' are currently supported'
             sys.exit(1)
 
         if not os.path.exists(".repo"):
@@ -120,10 +126,28 @@ class ContrailArchive(object):
         print "Fixing up the archive"
         os.chdir (self.opt.archive_path + "/artifacts")
 
+        # add link to storage package with os name
+        for files in glob.iglob("contrail-storage-packages*"):
+            newfilename = self.opt.arch_type + files.split('~')[-1]
+            newfilename = "~".join([files.split('~')[0], newfilename])
+            command = "ln -s %s %s" % (files, newfilename)
+            execute(command, ignore_errors=False)
+
+        # add link to server manager package with os name
+        for files in glob.iglob("contrail-server-manager-installer*"):
+            newfilename = self.opt.arch_type + files.split('~')[-1]
+            newfilename = "~".join([files.split('~')[0], newfilename])
+            command = "ln -s %s %s" % (files, newfilename)
+            execute(command, ignore_errors=False)
+
         for files in glob.iglob("contrail-install*"):
+            newfilename = self.opt.arch_type + files.split('~')[-1]
+            newfilename = "~".join([files.split('~')[0], newfilename])
             command = "cp " + files + " .."
             execute(command, ignore_errors=False)
             command = "rm " + files
+            execute(command, ignore_errors=False)
+            command = "ln -s %s %s" % (os.path.join('..', files), newfilename)
             execute(command, ignore_errors=False)
 
         for files in glob.iglob("*.iso"):
@@ -142,12 +166,34 @@ class ContrailArchive(object):
         os.chdir (path)
         os.mkdir ("binaries")
         os.chdir ("binaries")
-        os.symlink ("../sandbox/build/debug/control-node/contrail-control", "contrail-control")
-        os.symlink ("../sandbox/build/debug/dns/dnsd", "dnsd")
-        os.symlink ("../sandbox/build/debug/query_engine/contrail-query-engine", "contrail-query-engine")
-        os.symlink ("../sandbox/build/debug/analytics/contrail-collector", "contrail-collector")
-        os.symlink ("../sandbox/build/debug/vnsw/agent/contrail/contrail-vrouter-agent", "contrail-vrouter-agent")
-        os.symlink ("../sandbox/vrouter/vrouter.ko", "vrouter.ko")
+        lnk_binaries = [
+            ["../sandbox/build/debug/control-node/contrail-control", "contrail-control"],
+            ["../sandbox/build/debug/dns/contrail-dns", "contrail-dns"],
+            ["../sandbox/build/debug/dns/dnsd", "dnsd"],
+            ["../sandbox/build/debug/query_engine/qed", "qed"],
+            ["../sandbox/build/debug/analytics/vizd", "vizd"],
+            ["../sandbox/vrouter/vrouter.ko", "vrouter.ko"],
+            ["../sandbox/build/production/vnsw/agent/ovs_tor_agent/contrail-tor-agent", "contrail-tor-agent"]
+        ]
+        for (path, link) in lnk_binaries:
+            if os.path.isfile(path):
+                os.symlink (path, link)
+
+        # On Ubuntu, we find the packaged c-v-a in the build//packages dir, but on CentOS
+        # and RedHat, the packages dir is different, and it's been removed by the time
+        # we get here. So we use the original c-v-a exe that went into CentOS/RedHat pkg
+        vrouter_agent = [
+            "../sandbox/build/packages/contrail/usr/bin/contrail-vrouter-agent", # Ubuntu
+            "../sandbox/build/debug/vnsw/agent/contrail/contrail-vrouter-agent"  # CentOS/RedHat
+        ]
+
+        if os.path.isfile(vrouter_agent[0]):
+            os.symlink (vrouter_agent[0], "contrail-vrouter-agent")
+        elif os.path.isfile(vrouter_agent[1]):
+            os.symlink (vrouter_agent[1], "contrail-vrouter-agent")
+        else:
+            print 'Warning : Could not symlink contrail-vrouter-agent executable, skipping'
+
 
 def execute(command, ignore_errors=False):
     """ Function to execute shell command and return the output """

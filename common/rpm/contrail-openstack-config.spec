@@ -25,25 +25,35 @@ BuildArch: noarch
 Requires: contrail-config >= %{_verstr}-%{_relstr}
 Requires: openstack-quantum-contrail
 Requires: python-novaclient
+%if %{_skuTag} == "havana"
+Requires: python-neutronclient >= 2.3.0-2contrail
+%else
+Requires: python-neutronclient >= 2.3.4-2contrail
+%endif
 Requires: python-keystoneclient >= 0.2.0
 Requires: python-psutil
 Requires: mysql-server
 Requires: contrail-setup >= %{_verstr}-%{_relstr}
+Requires: contrail-utils >= %{_verstr}-%{_relstr}
 Requires: python-zope-interface
 %if 0%{?rhel} 
 Requires: python-importlib
 %endif
-Requires: euca2ools
+Requires: euca2ools >= 1.0-2contrail
 Requires: m2crypto
 Requires: openstack-nova
 Requires: java-1.7.0-openjdk
 Requires: haproxy
+Requires: keepalived
 Requires: rabbitmq-server
-Requires: python-bottle
+Requires: python-bottle >= 0.11.6
 Requires: contrail-nodemgr >= %{_verstr}-%{_relstr}
-Requires: ifmap-server
+Requires: ifmap-server >= 0.3.2-2contrail
 Requires: contrail-config-openstack >= %{_verstr}-%{_relstr}
 Requires: python-contrail >= %{_verstr}-%{_relstr}
+%if 0%{?rhel} <= 6
+Requires: python-importlib
+%endif
 
 %description
 Contrail Package Requirements for Contrail Config
@@ -59,30 +69,21 @@ pushd %{_distrothirdpartydir}/ncclient
 popd
 
 pushd %{_builddir}/..
-install -D -m 755 %{_distropkgdir}/supervisor-config.initd %{buildroot}%{_initddir}/supervisor-config
-install -D -m 755 %{_distropkgdir}/contrail-api.initd.supervisord %{buildroot}%{_initddir}/contrail-api
-install -D -m 755 %{_distropkgdir}/rabbitmq-server.initd.supervisord %{buildroot}%{_initddir}/rabbitmq-server.initd.supervisord
-install -D -m 755 %{_distropkgdir}/contrail-discovery.initd.supervisord %{buildroot}%{_initddir}/contrail-discovery
-install -D -m 755 %{_distropkgdir}/contrail-svc-monitor.initd.supervisord %{buildroot}%{_initddir}/contrail-svc-monitor
 install -D -m 755 %{_distropkgdir}/ifmap.initd.supervisord %{buildroot}%{_initddir}/ifmap
-install -D -m 755 %{_distropkgdir}/supervisord_config.conf %{buildroot}%{_sysconfdir}/contrail/supervisord_config.conf
-install -d -m 755 %{buildroot}%{_sysconfdir}/contrail/supervisord_config_files
-install -p -m 755 %{_distropkgdir}/contrail-api.ini %{buildroot}%{_sysconfdir}/contrail/supervisord_config_files/contrail-api.ini
-install -p -m 755 %{_distropkgdir}/rabbitmq-server.ini %{buildroot}%{_sysconfdir}/contrail/supervisord_config_files/rabbitmq-server.ini
-install -p -m 755 %{_distropkgdir}/contrail-schema.ini %{buildroot}%{_sysconfdir}/contrail/supervisord_config_files/contrail-schema.ini
-install -p -m 755 %{_distropkgdir}/contrail-svc-monitor.ini %{buildroot}%{_sysconfdir}/contrail/supervisord_config_files/contrail-svc-monitor.ini
-install -p -m 755 %{_distropkgdir}/contrail-discovery-centos.ini %{buildroot}%{_sysconfdir}/contrail/supervisord_config_files/contrail-discovery.ini
-install -p -m 755 %{_distropkgdir}/contrail-ifmap.ini %{buildroot}%{_sysconfdir}/contrail/supervisord_config_files/
-install -p -m 755 %{_distropkgdir}/supervisord_wrapper_scripts/contrail-api.kill %{buildroot}%{_sysconfdir}/contrail/supervisord_config_files/contrail-api.kill
-install -p -m 755 %{_distropkgdir}/contrail-config.rules %{buildroot}%{_sysconfdir}/contrail/supervisord_config_files/contrail-config.rules
+install -p -m 755 %{_distropkgdir}/ifmap.ini %{buildroot}%{_sysconfdir}/contrail/supervisord_config_files/ifmap.ini
+install -p -m 755 %{_distropkgdir}/contrail-nodemgr-config.ini %{buildroot}%{_sysconfdir}/contrail/supervisord_config_files/contrail-nodemgr-config.ini
 install -D -m 755 %{_distropkgdir}/zookeeper.initd %{buildroot}%{_initddir}/zookeeper
+install -d -m 755 %{buildroot}%{_sysconfdir}/contrail/supervisord_support_service_files
+install -D -m 755 %{_distropkgdir}/supervisor-support-service.initd %{buildroot}%{_initddir}/supervisor-support-service
+install -D -m 755 %{_distropkgdir}/supervisord_support_service.conf %{buildroot}%{_sysconfdir}/contrail/supervisord_support_service.conf
+install -D -m 755 %{_distropkgdir}/rabbitmq-server.initd.supervisord %{buildroot}%{_initddir}/rabbitmq-server.initd.supervisord
+install -p -m 755 %{_distropkgdir}/rabbitmq-server.ini %{buildroot}%{_sysconfdir}/contrail/supervisord_support_service_files/rabbitmq-server.ini
 pushd %{_builddir}
 install -D -m 755 src/config/schema-transformer/ifmap_view.py %{buildroot}%{_bindir}/ifmap_view.py
 #install -D -m 755 src/config/utils/encap.py %{buildroot}%{_bindir}/encap.py
 popd
 install -d -m 777 %{buildroot}%{_localstatedir}/log/contrail
 
-install -D -m 755 %{_distropkgdir}/venv-helper %{buildroot}%{_bindir}/venv-helper
 
 pushd %{buildroot}
 
@@ -103,17 +104,11 @@ popd
 %{_sysconfdir}/contrail
 %dir %attr(0777, contrail, contrail) %{_localstatedir}/log/contrail
 %{_bindir}/ifmap_view.py
-%{_bindir}/venv-helper
 #%{_bindir}/encap.py
 %{_initddir}
-#%{_venv_root}/bin
-%config(noreplace) %{_sysconfdir}/contrail/supervisord_config.conf
-%config(noreplace) %{_sysconfdir}/contrail/supervisord_config_files/contrail-api.ini
-%config(noreplace) %{_sysconfdir}/contrail/supervisord_config_files/rabbitmq-server.ini
-%config(noreplace) %{_sysconfdir}/contrail/supervisord_config_files/contrail-schema.ini
-%config(noreplace) %{_sysconfdir}/contrail/supervisord_config_files/contrail-svc-monitor.ini
-%config(noreplace) %{_sysconfdir}/contrail/supervisord_config_files/contrail-discovery.ini
-%config(noreplace) %{_sysconfdir}/contrail/supervisord_config_files/ifmap.ini
+%{_sysconfdir}/contrail/supervisord_support_service.conf
+%config(noreplace) %{_sysconfdir}/contrail/supervisord_config_files/contrail-nodemgr-config.ini
+%config(noreplace) %{_sysconfdir}/contrail/supervisord_support_service_files/rabbitmq-server.ini
 
 %post
 if [ $1 -eq 1 -a -x /bin/systemctl ] ; then

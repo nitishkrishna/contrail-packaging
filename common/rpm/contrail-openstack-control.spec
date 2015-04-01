@@ -29,6 +29,7 @@ Requires: contrail-control >= %{_verstr}-%{_relstr}
 Requires: contrail-lib >= %{_verstr}-%{_relstr}
 Requires: contrail-dns >= %{_verstr}-%{_relstr}
 Requires: contrail-setup >= %{_verstr}-%{_relstr}
+Requires: contrail-utils >= %{_verstr}-%{_relstr}
 Requires: contrail-nodemgr >= %{_verstr}-%{_relstr}
 Requires: python-contrail >= %{_verstr}-%{_relstr}
 
@@ -43,38 +44,15 @@ install -d -m 755 %{buildroot}%{_supervisordir}
 
 pushd %{_builddir}/..
 
-install -D -m 755 %{_distropkgdir}/supervisor-control.initd %{buildroot}%{_initddir}/supervisor-control
-install -D -m 755 %{_distropkgdir}/contrail-control.initd.supervisord %{buildroot}%{_initddir}/contrail-control
-%if 0%{?rhel}
-install -D -m 755 %{_distropkgdir}/supervisor-control.initd %{buildroot}%{_initddir}/supervisor-control
-install -D -m 755 %{_distropkgdir}/contrail-control.initd.supervisord %{buildroot}%{_initddir}/contrail-control
-%endif
-
-#install nstall .ini files for supervisord
-install -p -m 755 %{_distropkgdir}/supervisord_control.conf %{buildroot}%{_contrailetc}/supervisord_control.conf
-install -p -m 755 %{_distropkgdir}/contrail-control.ini %{buildroot}%{_supervisordir}/contrail-control.ini
-install -p -m 755 %{_distropkgdir}/contrail-named.ini %{buildroot}%{_supervisordir}/contrail-named.ini
-install -p -m 755 %{_distropkgdir}/contrail-dns.ini %{buildroot}%{_supervisordir}/contrail-dns.ini
-
-install -D -m 644 %{_distropkgdir}/control_param %{buildroot}/etc/contrail/control_param
-install -p -m 755 %{_distropkgdir}/contrail-control.rules %{buildroot}%{_supervisordir}/contrail-control.rules
+install -p -m 755 %{_distropkgdir}/contrail-nodemgr-control.ini %{buildroot}%{_supervisordir}/contrail-nodemgr-control.ini
 
 %files
 %defattr(-,root,root,-)
 %{_supervisordir}
-%config(noreplace) %{_contrailetc}/supervisord_control.conf
-%if 0%{?rhel}
-%{_initddir}/supervisor-control
-%{_initddir}/contrail-control
-%endif
 %defattr(-,contrail,contrail,-)
-%config(noreplace) /etc/contrail/control_param
-%config(noreplace) %{_supervisordir}/contrail-control.ini
-%config(noreplace) %{_supervisordir}/contrail-named.ini
-%config(noreplace) %{_supervisordir}/contrail-dns.ini
+%config(noreplace) %{_supervisordir}/contrail-nodemgr-control.ini
 
 %post
-(umask 007; /bin/echo "HOSTNAME=$(hostname)" >> /etc/contrail/control_param)
 if [ -x /bin/systemctl ]; then
    /bin/systemctl --system daemon-reload
 fi

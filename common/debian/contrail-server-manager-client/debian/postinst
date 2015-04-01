@@ -6,12 +6,18 @@ set -e
 echo "running post install"
 
 HOST_IP_LIST=`ifconfig | sed -n -e 's/:127\.0\.0\.1 //g' -e 's/ *inet addr:\([0-9.]\+\).*/\1/gp'`
-HOST_IP=`echo $HOST_IP_LIST | cut -d',' -f1`
+HOST_IP=`echo $HOST_IP_LIST | cut -d' ' -f1`
+if [ -f /opt/contrail/contrail_server_manager/IP.txt ];
+then
+   HOST_IP=$(cat /opt/contrail/contrail_server_manager/IP.txt)
+fi
 echo $HOST_IP
 easy_install argparse
 easy_install pycurl
+easy_install pip
+pip install xmltodict
 
-if [-e /usr/bin/server-manager ]; then
+if [ -e /usr/bin/server-manager ]; then
 	unlink /usr/bin/server-manager
 fi
 
